@@ -16,5 +16,6 @@ day2 folder: sample11.bil and sample11.bil.hdr, sample12.bil and sample12.bil.hd
 .
 
 Modify your imgage folder and output location, then click Run. 
+
 Output file: One Excel file including multiple sheets (each sheet for each day collection).
              One folder for ROI_RGB to check regions of interest were correct.
