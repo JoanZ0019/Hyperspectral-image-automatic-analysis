@@ -1,0 +1,276 @@
+import os
+import numpy as np
+import spectral
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# ============================================================
+# USER SETTINGS
+# ============================================================
+
+
+root_dir = r"D:\Qiong Zhang\Tall fescue Hyperspectral"
+output_excel = r"D:\Qiong Zhang\Tall fescue Hyperspectral\VI_summary.xlsx"
+rgb_output_root = r"D:\Qiong Zhang\Tall fescue Hyperspectral\ROI_RGB"
+# ROI (0-based indexing, END is exclusive)
+row_start, row_end = 130, 670  # lines
+col_start, col_end = 150, 750  # samples
+
+
+def circular_roi_mask(n_rows, n_cols, row_start, row_end, col_start, col_end):
+    center_row = (row_start + row_end) // 2
+    center_col = (col_start + col_end) // 2
+    radius = min(row_end - row_start, col_end - col_start) // 2
+
+    Y, X = np.ogrid[:n_rows, :n_cols]
+    mask = (Y - center_row) ** 2 + (X - center_col) ** 2 <= radius ** 2
+    return mask, center_row, center_col, radius
+
+
+def plot_rgb_with_roi(cube, band_idx, center, radius, title, out_path):
+    rgb = np.dstack([
+        cube[:, :, band_idx['R']],
+        cube[:, :, band_idx['G']],
+        cube[:, :, band_idx['B']]
+    ]).astype(float)
+
+    rgb -= np.nanmin(rgb)
+    rgb /= np.nanmax(rgb)
+
+    plt.figure(figsize=(6, 6))
+    plt.imshow(rgb)
+
+    circle = plt.Circle(
+        (center[1], center[0]),
+        radius,
+        color='yellow',
+        fill=False,
+        linewidth=2
+    )
+    plt.gca().add_patch(circle)
+
+    plt.title(title)
+    plt.axis("off")
+    plt.savefig(out_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+
+rgb_wv = {'R': 670, 'G': 550, 'B': 450}
+
+# Target wavelengths (nm)
+target_wv = [
+    445, 450, 500, 510, 531, 550, 570,
+    670, 675, 680, 700, 701, 705, 715,
+    720, 726, 734, 740, 747, 750,
+    800, 850, 900, 970
+]
+
+
+# ============================================================
+# HELPER FUNCTIONS
+# ============================================================
+
+def get_band_idx(img, target_nm, tol=10):
+    """
+    Find band index closest to target wavelength.
+    """
+    if img.bands.centers is None:
+        raise ValueError("No wavelength information in header.")
+
+    wv = np.asarray(img.bands.centers, dtype=np.float64)
+    idx = np.argmin(np.abs(wv - target_nm))
+
+    if abs(wv[idx] - target_nm) > tol:
+        print(f"Warning: {target_nm} nm -> using {wv[idx]:.2f} nm")
+
+    return idx
+
+
+def safe_divide(numerator, denominator, output=None):
+    """
+    Divide numerator by denominator safely: only where denominator > 0.
+    If output is None, a new array is created.
+    """
+    if output is None:
+        output = np.zeros_like(numerator, dtype=float)
+    np.divide(numerator, denominator, where=denominator > 0, out=output)
+    return output
+
+
+def calc_vi_pixelwise(R, scale=10000.0):
+    """
+    Compute Spectronon-matched vegetation indices for a given ROI.
+
+    Parameters
+    ----------
+    R : dict
+        Dictionary of numpy arrays of reflectance at target wavelengths.
+        Keys should be strings like 'R450', 'R500', etc., using raw integer reflectance.
+    scale : float
+        Factor to normalize raw reflectance to 0-1. Default 10000 (adjust if different).
+
+    Returns
+    -------
+    dict
+        Mean value of each VI across ROI.
+    """
+
+    # ----------------------------
+    # 1. Replace zeros with NaN
+    # ----------------------------
+    for k in R:
+        R[k] = np.where(R[k] == 0, np.nan, R[k])
+
+    # ----------------------------
+    # 2. Compute indices (Spectronon conventions)
+    # ----------------------------
+
+    # --- band reflectance values such as 7234,11345,---
+    ARI1 = (1 / R['R550']) - (1 / R['R700'])
+    ARI2 = R['R800'] * ((1 / R['R550']) - (1 / R['R700']))
+    CRI1 = (1 / R['R510']) - (1 / R['R550'])
+    CRI2 = (1 / R['R510']) - (1 / R['R700'])
+    MCARI = ((R['R700'] - R['R670']) - 0.2 * (R['R700'] - R['R550'])) * (R['R700'] / R['R670'])
+    MCARI2 = 1.5 * (2.5 * (R['R800'] - R['R670']) - 1.3 * (R['R800'] - R['R550'])) / \
+             np.sqrt((2 * R['R800'] + 1) ** 2 - (6 * R['R800'] - 5 * R['R670']) - 0.5)
+    TCARI = 3 * ((R['R701'] - R['R670']) - 0.2 * (R['R701'] - R['R550']) * (R['R701'] / R['R670']))
+    MRESRI = safe_divide(R['R750'] - R['R445'], R['R705'] - R['R445'])
+    ARVI = (R['R800'] - 2 * R['R680'] + R['R450']) / (R['R800'] + 2 * R['R670'] - R['R450'])
+    # EVI = 2.5*(R['R800'] - R['R680']) / (R['R800'] + 6 * R['R680'] - 7.5 * R['R450'] + 10000)
+    EVI = safe_divide(2.5 * (R['R800'] - R['R680']), (R['R800'] + 6 * R['R680'] - 7.5 * R['R450'] + 10000))
+    MRENDVI = safe_divide(R['R750'] - R['R705'], R['R750'] + R['R705'] - 2 * R['R445'])
+    NDVI = (R['R800'] - R['R680']) / (R['R800'] + R['R680'])
+    PRI = (R['R531'] - R['R570']) / (R['R531'] + R['R570'])
+    PSRI = (R['R680'] - R['R500']) / R['R750']
+    RENDVI = (R['R750'] - R['R705']) / (R['R750'] + R['R705'])
+    SR = R['R850'] / R['R675']
+    SIPI = (R['R800'] - R['R445']) / (R['R800'] + R['R680'])
+    VREI1 = R['R740'] / R['R720']
+    VREI2 = (R['R734'] - R['R747']) / (R['R715'] + R['R726'])
+    VREI3 = (R['R734'] - R['R747']) / (R['R715'] + R['R720'])
+    WBI = R['R900'] / R['R970']
+
+    # ----------------------------
+    # 4. Compute ROI mean for each VI
+    # ----------------------------
+    vi_arrays = {
+        'ARI1': ARI1, 'ARI2': ARI2, 'ARVI': ARVI,
+        'CRI1': CRI1, 'CRI2': CRI2,
+        'EVI': EVI,
+        'MCARI2': MCARI2, 'MCARI': MCARI,
+        'MRENDVI': MRENDVI, 'MRESRI': MRESRI,
+        'NDVI': NDVI, 'PRI': PRI, 'PSRI': PSRI,
+        'RENDVI': RENDVI, 'SR': SR, 'SIPI': SIPI,
+        'TCARI': TCARI,
+        'VREI1': VREI1, 'VREI2': VREI2, 'VREI3': VREI3,
+        'WBI': WBI
+    }
+
+    return {k: float(np.nanmean(v)) for k, v in vi_arrays.items()}
+
+
+# ============================================================
+# MAIN PROCESSING LOOP
+# ============================================================
+
+with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
+    for folder in sorted(os.listdir(root_dir)):
+        folder_path = os.path.join(root_dir, folder)
+
+        if not os.path.isdir(folder_path):
+            continue
+
+        print(f"\nProcessing folder: {folder}")
+        records = []
+
+        rgb_out_dir = os.path.join(rgb_output_root, folder)
+        os.makedirs(rgb_out_dir, exist_ok=True)
+
+        for file in os.listdir(folder_path):
+            if not file.lower().endswith(".hdr"):
+                continue
+
+            hdr_path = os.path.join(folder_path, file)
+            cube_name = os.path.splitext(file)[0]
+            cube_name = cube_name.replace(".bil", "").replace(".BIL", "")
+            print(f"  Processing file: {file}")
+
+            try:
+                img = spectral.envi.open(hdr_path)
+                cube = img.load().astype(np.float32)
+
+                n_rows, n_cols, _ = cube.shape
+
+                # ---- Circular ROI ----
+                mask, c_row, c_col, radius = circular_roi_mask(
+                    n_rows, n_cols,
+                    row_start, row_end,
+                    col_start, col_end
+                )
+
+                # ---- Extract bands for VI ----
+                bands = {}
+                for nm in target_wv:
+                    idx = get_band_idx(img, nm)
+                    band = cube[:, :, idx]
+                    bands[f"R{nm}"] = band[mask] * 10000
+
+                vi_mean = calc_vi_pixelwise(bands)
+                vi_mean["Cube"] = cube_name
+                records.append(vi_mean)
+
+                # ---- RGB plot ----
+                band_idx = {
+                    'R': get_band_idx(img, 670),
+                    'G': get_band_idx(img, 550),
+                    'B': get_band_idx(img, 450)
+                }
+
+                out_png = os.path.join(rgb_out_dir, f"{cube_name}_ROI.png")
+
+                plot_rgb_with_roi(
+                    cube=cube,
+                    band_idx=band_idx,
+                    center=(c_row, c_col),
+                    radius=radius,
+                    title=cube_name,
+                    out_path=out_png
+                )
+
+            except Exception as e:
+                print(f"  ERROR processing {file}: {e}")
+
+        # ---- Save one Excel sheet per folder ----
+        if records:
+            df = pd.DataFrame(records)
+            cols = df.columns.tolist()
+            cols.insert(0, cols.pop(cols.index("Cube")))
+            df = df[cols]
+
+            df.to_excel(
+                writer,
+                sheet_name=folder[:31],
+                index=False
+            )
+
+print("\nDONE")
+print("Excel saved to:")
+print(output_excel)
+
+
+# This is a sample Python script.
+
+# Press Shift+F10 to execute it or replace it with your code.
+# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+
+
+def print_hi(name):
+    # Use a breakpoint in the code line below to debug your script.
+    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+
+
+# Press the green button in the gutter to run the script.
+if __name__ == '__main__':
+    print_hi('PyCharm')
+
+# See PyCharm help at https://www.jetbrains.com/help/pycharm/
