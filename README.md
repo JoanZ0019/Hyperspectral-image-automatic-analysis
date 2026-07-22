@@ -10,6 +10,9 @@ Running this script, it took < 2h to run by itself automatically for 805 hypersp
 
 
 Input file format:
+<img width="616" height="170" alt="image" src="https://github.com/user-attachments/assets/c5bcbfa4-0c41-44ad-b06d-f3011fc052d8" />
+<img width="719" height="193" alt="image" src="https://github.com/user-attachments/assets/2e343354-ae45-4a81-b001-1125a7fb520c" />
+<img width="672" height="169" alt="image" src="https://github.com/user-attachments/assets/e74f5ed6-3894-41a2-bed5-1a46cc31cdec" />
 
 
         experiment1 folder: 
@@ -19,7 +22,11 @@ Input file format:
                   .
                   .
 
-Modify your imgage folder and output location, then click Run. 
+Modify your imgage folder and output location, then click Run<img width="27" height="25" alt="image" src="https://github.com/user-attachments/assets/192d7c8d-11ae-427d-9c21-631cd90d5df0" />
+. 
+
+<img width="484" height="50" alt="image" src="https://github.com/user-attachments/assets/7c3e22bd-dffc-486a-8eda-06805c88cf67" />
+
 
 Output file: 
 
