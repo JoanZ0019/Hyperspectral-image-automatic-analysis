@@ -12,8 +12,7 @@ Running this script, it took < 2h to run by itself automatically for 805 hypersp
 Input file format:
 
 
-
-experiment1 folder: 
+        experiment1 folder: 
                   day1 folder: sample1.bil and sample1.bil.hdr, sample2.bil and sample2.bil.hdr,....
                   day2 folder: sample11.bil and sample11.bil.hdr, sample12.bil and sample12.bil.hdr,....
                   .
