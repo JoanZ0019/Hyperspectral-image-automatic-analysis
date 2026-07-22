@@ -9,8 +9,8 @@ The "double check" sheet in the Excel file (VI_summary test run.xlsx) was to com
 Running this script, it took < 2h to run by itself automatically for 805 hyperspectral images from one experiment. In the Resonon software, each hyperspectral image would easily take 3-5 min to get VIs data and type into an Excel. Therefore, it would take 50h+ work of constant operation for hyperspectral data from one experiment.  
 
 Input file format:
-
 experiment1 folder: 
+
                   day1 folder: sample1.bil and sample1.bil.hdr, sample2.bil and sample2.bil.hdr,....
                   day2 folder: sample11.bil and sample11.bil.hdr, sample12.bil and sample12.bil.hdr,....
                   .
