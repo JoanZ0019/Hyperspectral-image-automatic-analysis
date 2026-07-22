@@ -1,5 +1,5 @@
 # Hyperspectral-image-automatic-analysis
-It took one second to get the results from testing 4 images in 2 folders. 
+It took a few second to get the results from testing 4 images in 2 folders. 
 
 This script would allow you to process multiple hyperspectral images with only one click  and get VIs listed from the Resonon software for each image and each collection day.
 It automatically outputs one Excel file that includes 21 VIs (you can add any VI you want) of multiple samples from each day. And it outputs an **ROI_RGB folder** for regions of interest (ROI) from each raw image saved as RGB images to check.
