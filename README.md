@@ -24,7 +24,6 @@ Running this script, it took < 2h to run by itself automatically for 805 hypersp
                   .
 
 # 2. Modify your imgage folder and output location, then click Run<img width="27" height="25" alt="image" src="https://github.com/user-attachments/assets/192d7c8d-11ae-427d-9c21-631cd90d5df0" />
-. 
 
 <img width="484" height="50" alt="image" src="https://github.com/user-attachments/assets/7c3e22bd-dffc-486a-8eda-06805c88cf67" />
 
